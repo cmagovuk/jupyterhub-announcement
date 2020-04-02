@@ -3,6 +3,7 @@ import datetime
 import json
 import os
 import sys
+import s3fs
 
 from jinja2 import Environment, ChoiceLoader, FileSystemLoader, PrefixLoader
 from jupyterhub.services.auth import HubAuthenticated
@@ -14,6 +15,7 @@ from tornado import escape, gen, ioloop, web
 from traitlets.config import Application, Configurable, LoggingConfigurable
 from traitlets import Any, Bool, Dict, Float, Integer, List, Unicode, default
 
+fs = s3fs.S3FileSystem(anon=False)
 
 class _JSONEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -36,7 +38,7 @@ class AnnouncementQueue(LoggingConfigurable):
     announcements = List()
 
     persist_path = Unicode(
-            "",
+            "dev.cloudformation.cma.gov.uk/leda/announcements.json",
             help="""File path where announcements persist as JSON.
 
             For a persistent announcement queue, this parameter must be set to
@@ -50,10 +52,7 @@ class AnnouncementQueue(LoggingConfigurable):
               created when an announcement is added to the queue.
             * The persistence file is over-written with the contents of the
               announcement queue each time a new announcement is added.
-
-            If this parameter is set to an empty value (the default) then the
-            queue is just empty at initialization and the queue is ephemeral;
-            announcements will not be persisted on updates to the queue."""
+            """
     ).tag(config=True)
 
     lifetime_days = Float(7.0,
@@ -82,8 +81,8 @@ class AnnouncementQueue(LoggingConfigurable):
             self.log.error(f"failed to restore queue ({err})")
 
     def _restore(self):
-        with open(self.persist_path, "r") as stream:
-            self.announcements = json.load(stream, object_hook=_datetime_hook)
+        with fs.open(self.persist_path, "r") as f:
+            self.announcements = f.read(json.loads(object_hook=_datetime_hook))
 
     def update(self, user, announcement=""):
         self.announcements.append(dict(user=user,
@@ -100,8 +99,8 @@ class AnnouncementQueue(LoggingConfigurable):
             self.log.error(f"failed to persist queue ({err})")
 
     def _persist(self):
-        with open(self.persist_path, "w") as stream:
-            json.dump(self.announcements, stream, cls=_JSONEncoder, indent=2)
+        with fs.open(self.persist_path, "w") as f:
+            f.write(json.dumps(self.announcements, cls=_JSONEncoder, indent=2))
 
     def purge(self):
         max_age = datetime.timedelta(days=self.lifetime_days)
