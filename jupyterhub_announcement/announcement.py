@@ -81,8 +81,8 @@ class AnnouncementQueue(LoggingConfigurable):
             self.log.error(f"failed to restore queue ({err})")
 
     def _restore(self):
-        with fs.open(self.persist_path, "r") as f:
-            self.announcements = f.read(json.loads(object_hook=_datetime_hook))
+        with fs.open(self.persist_path, "rb") as f:
+            self.announcements = json.loads(f.read().decode('utf8'), object_hook=_datetime_hook)
 
     def update(self, user, announcement=""):
         self.announcements.append(dict(user=user,
@@ -99,8 +99,8 @@ class AnnouncementQueue(LoggingConfigurable):
             self.log.error(f"failed to persist queue ({err})")
 
     def _persist(self):
-        with fs.open(self.persist_path, "w") as f:
-            f.write(json.dumps(self.announcements, cls=_JSONEncoder, indent=2))
+        with fs.open(self.persist_path, "wb") as f:
+            f.write(json.dumps(self.announcements, cls=_JSONEncoder, indent=2).encode('utf8))
 
     def purge(self):
         max_age = datetime.timedelta(days=self.lifetime_days)
