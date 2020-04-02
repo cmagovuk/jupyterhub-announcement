@@ -38,7 +38,7 @@ class AnnouncementQueue(LoggingConfigurable):
     announcements = List()
 
     persist_path = Unicode(
-            "dev.cloudformation.cma.gov.uk/leda/announcements.json",
+            "cloudformation.cma.gov.uk/leda/announcements.json",
             help="""File path where announcements persist as JSON.
 
             For a persistent announcement queue, this parameter must be set to
